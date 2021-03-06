@@ -12,6 +12,8 @@ var HashMap = require('hashmap');
 
 const bodyParser = require('body-parser');
 
+const boardUtils = require('./boardUtils');
+
 app.use(bodyParser.json());
 
 http.listen(port, () => {
@@ -42,7 +44,6 @@ const sockets = new HashMap();
 var games = new HashMap();
 const socktsIdsGame = new HashMap();
 
-
 io.on('connection', (socket)=>{
   console.log(`Client ${socket.id} has connected`);
   sockets.set(socket.id, socket);
@@ -72,30 +73,6 @@ io.on('connection', (socket)=>{
   });
 });
 
-
-async function postMove(req, res) {
-  //console.log(util.inspect(req.body, false, null, true /* enable colors */));
-  const socketId = req.header('socketId');
-  const gameId = req.header('gameId');
-  const move = req.body
-
-  console.log(`postMove: gameId: ${gameId}`);
-  console.log(`postMove: socketId: ${socketId}`);
-  console.log(`postMove: move: ${util.inspect(move)}`);
-
-  const game = games.get(gameId);
-  const socket1 = game.sockets[0];
-  const socket2 = game.sockets[1];
-
-  if (socket1.id === socketId) {
-    socket2.emit("newMove", move);
-  } else {
-    socket1.emit("newMove", move);
-  }
-
-  res.status(200).send("Succ!!!");
-}
-
 async function createNewGame(req, res) {
   console.log(`createNewGame: start`);
   console.log(`createNewGame: headers: ${JSON.stringify(req.headers)}`);
@@ -103,7 +80,8 @@ async function createNewGame(req, res) {
   const socketId = req.header('socketId');
   const gameId = Math.random().toString(36).substring(2, 15).substring(0, 3);
   const gameSettings = req.body.gameSettings;
-  const board = req.body.board;
+  const board = boardUtils.createBoard(20, 12, 50);
+  //const board = req.body.board;
 
   while ( typeof games.get(gameId) !== 'undefined' ) {
     const gameId = Math.random().toString(36).substring(2, 15).substring(0, 6);
@@ -122,6 +100,26 @@ async function createNewGame(req, res) {
   //console.log(util.inspect(games.get(gameId), false, null, true /* enable colors */));
 
   res.status(200).send({"gameId" : gameId});
+}
+
+async function postMove(req, res) {
+  const socketId = req.header('socketId');
+  const gameId = req.header('gameId');
+  const move = req.body
+
+  console.log(`postMove:\ngameId: ${gameId}\nsocketId: ${socketId}\nmove: ${util.inspect(move)}`);
+
+  const game = games.get(gameId);
+  const socket1 = game.sockets[0];
+  const socket2 = game.sockets[1];
+
+  if (socket1.id === socketId) {
+    socket2.emit("newMove", move);
+  } else {
+    socket1.emit("newMove", move);
+  }
+
+  res.status(200).send("Succ!!!");
 }
 
 async function enterGame(req, res) {
