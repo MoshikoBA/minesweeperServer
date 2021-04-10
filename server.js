@@ -48,6 +48,7 @@ const socktsIdsGame = new HashMap();
 io.on('connection', (socket)=>{
   console.log(`Client ${socket.id} has connected`);
   sockets.set(socket.id, socket);
+  socket.emit("socketConnected", {});
 
   socket.on('disconnect', ()=>{
     console.log(`Client ${socket.id} has disconnected`);
