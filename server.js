@@ -135,7 +135,7 @@ async function postMove(req, res) {
   res.status(200).send("Succ!!!");
 }
 
-async function enterGame(req, res) {
+function enterGame(req, res) {
   console.log(`enterGame: start`);
 
   const socketId = req.header('socketId');
