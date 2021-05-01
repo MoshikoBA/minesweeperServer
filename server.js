@@ -14,6 +14,8 @@ const bodyParser = require('body-parser');
 
 const boardUtils = require('./boardUtils');
 
+const authApp = require('./database/auth.js');
+
 app.use(bodyParser.json());
 
 http.listen(port, () => {
@@ -98,12 +100,6 @@ async function createNewPrivateGame(req, res) {
     const gameId = Math.random().toString(36).substring(2, 15).substring(0, 6);
   }
 
-  //console.log(util.inspect(gameSettings, false, null, true /* enable colors */));
-
-  //console.log(`postNewGame: body: ${util.inspect(req.body)}`);
-
-  //console.log(util.inspect(req.body, false, null, true /* enable colors */));
-
   games.set(gameId, new GameClass(gameId, board, new GameSettings(gameSettings.flagsToWin, gameSettings.gentlemanRule), isPrivate));
   games.get(gameId).addSocket(sockets.get(socketId));
   socktsIdsGame.set(socketId, gameId);
@@ -154,7 +150,6 @@ function enterGame(req, res) {
   }
 
   // if here, there is a valid game -- private or not
-  console.log(`typeof game: ${typeof game}`);
   game.addSocket(sockets.get(socketId));
   socktsIdsGame.set(socketId, game.gameId);
   //console.log(util.inspect(game, false, null, true /* enable colors */));
@@ -176,9 +171,6 @@ function enterGame(req, res) {
       "gameSettings": game.boardSettings,
       "firstTurn": 1
     }
-
-    //console.log(`enterGame: game first socket: ${util.inspect(game.sockets[0])}`);
-    //console.log(`enterGame: game first socket: ${util.inspect(game.sockets[1])}`);
 
     socket1.emit('enterGame', gameObject1);
     socket2.emit('enterGame', gameObject2);
@@ -222,8 +214,6 @@ function createNewNotPrivateGame() {
 
   games.set(gameId, game);
 
-  console.log(`createNewNotPrivateGame: game: ${util.inspect(game)}`);
-
   return game;
 }
 
@@ -233,7 +223,6 @@ async function getGamesData(req, res) {
   };
 
   const values = games.values();
-  console.log(values.length);
   var array = [];
 
 
@@ -260,6 +249,7 @@ async function getGamesData(req, res) {
   res.send({"data": data});
 }
 
+app.use('/auth', authApp);
 app.post('/move', postMove);
 app.post('/createNewPrivateGame', createNewPrivateGame);
 app.post('/enterGame', enterGame);
