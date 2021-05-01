@@ -45,6 +45,6 @@ async function getUserData(req, res) {
   }
 }
 
-authApp.get('/getUserData', getUserData);
+authApp.post('/getUserData', getUserData);
 
 module.exports = authApp;
