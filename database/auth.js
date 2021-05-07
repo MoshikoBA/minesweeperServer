@@ -12,19 +12,22 @@ authApp.use(bodyParser.json());
 
 
 async function getUserData(req, res) {
-
+  console.log("getUserData started");
   const userUID = req.body.userUID;
 
   const usersRef = firestore.collection('users');
   const user = await usersRef.doc(userUID).get();
 
-  const userData = user.data();
+  const userData = await user.data();
+
+  console.log(`type of user: ${typeof userData}`);
 
   if (typeof userData !== 'undefined') {
     // the user is exists.
     return res.status(200).send({"user" : userData});
   } else {
     // this is a new user, create a doc with the user UID
+    console.log("user no exists");
 
     var guestCode = Math.random().toString(36).substring(2, 12).toLocaleUpperCase();
 
