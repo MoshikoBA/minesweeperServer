@@ -19,12 +19,12 @@ async function getUserData(req, res) {
   const user = await usersRef.doc(userUID).get();
 
   const userData = await user.data();
-  userData.created = userData.created.toDate();
 
   console.log(`type of user: ${typeof userData}`);
 
   if (typeof userData !== 'undefined') {
     // the user is exists.
+    userData.created = userData.created.toDate();
     return res.status(200).send({"user" : userData});
   } else {
     // this is a new user, create a doc with the user UID
