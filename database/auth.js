@@ -19,6 +19,7 @@ async function getUserData(req, res) {
   const user = await usersRef.doc(userUID).get();
 
   const userData = await user.data();
+  userData.created = userData.created.toDate();
 
   console.log(`type of user: ${typeof userData}`);
 
