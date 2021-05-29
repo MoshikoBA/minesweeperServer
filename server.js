@@ -12,6 +12,8 @@ const dataModule = require('./data.js');
 const sockets = dataModule.sockets;
 const games = dataModule.games;
 const socketsIdsGame = dataModule.socketsIdsGame;
+const usersMap = dataModule.usersMap;
+const socketsUsersMap = dataModule.socketsUsersMap;
 
 app.use(bodyParser.json());
 
@@ -27,34 +29,39 @@ io.on('connection', (socket)=>{
 
   socket.on('disconnect', ()=>{
     console.log(`Client ${socket.id} has disconnected`);
-    const socketGameId = socketsIdsGame.get(socket.id);
-    console.log(`socket disconnect gameId: ${socketGameId}`);
+    const gameId = socketsIdsGame.get(socket.id);
+    console.log(`socket disconnect gameId: ${gameId}`);
+
+    const socketId = socket.id;
+    const userId = socketsUsersMap.get(socketId);
 
 // if the disconnected socket is in a game
-    if (typeof socketGameId !== 'undefined') {
-      const game = games.get(socketGameId);
-      const gameSockets = game.sockets;
+    if (typeof gameId !== 'undefined') {
+      const game = games.get(gameId);
+      const players = game.players;
 
-// remove the disconnected socket from the game's sockets and from the socketgames map
-      if (gameSockets[0].id === socket.id) {
-        socketsIdsGame.remove(gameSockets[0].id);
-        gameSockets.splice(0, 1);
+      // remove the disconnected socket from the game's players and socketsIdsGame
+      if (players[0].socket.id === socketId) {
+        players.splice(0, 1);
       } else {
-        socketsIdsGame.remove(gameSockets[1].id);
-        gameSockets.splice(1, 1);
+        players.splice(1, 1);
       }
 
-// if there is another socket in the game (running game), publish to it that the opponent left
-      if (gameSockets.length !== 0) {
-        socketsIdsGame.remove(gameSockets[0].id);
-        gameSockets[0].emit('opponentLeft', {});
+      socketsIdsGame.remove(socketId);
+
+      // if there is another socket in the game (running game), publish to it that the opponent left
+      if (players.length !== 0) {
+        socketsIdsGame.remove(players[0].socket.id);
+        players[0].socket.emit('opponentLeft', {});
       }
 
-// remove the game from the games map
-      games.remove(socketGameId);
+      // remove the game from the games map
+      games.remove(gameId);
     }
-    // remove the socket from the sockets map
-    sockets.remove(socket.id);
+    // remove the socket from the sockets map, socketgames map, usersMap and socketsUsersMap
+    usersMap.remove(userId);
+    socketsUsersMap.remove(socketId);
+    sockets.remove(socketId);
   });
 });
 
@@ -90,6 +97,11 @@ async function getGamesData(req, res) {
   res.send({"data": data});
 }
 
+function getUSers(req, res) {
+  res.send({"users": usersMap.values()});
+}
+
 app.use('/auth', authApp);
 app.use(gamesManagerApp);
 app.get('/gamesData', getGamesData);
+app.get('/users', getUSers);

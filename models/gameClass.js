@@ -3,12 +3,16 @@ class GameClass {
     this.gameId = gameId;
     this.board = board;
     this.boardSettings = boardSettings;
-    this.sockets = [];
+    this.players = [];
     this.isPrivate = isPrivate;
   }
 
   addSocket(socket) {
     this.sockets.push(socket);
+  }
+
+  addPlayer(player) {
+    this.players.push(player);
   }
 }
 

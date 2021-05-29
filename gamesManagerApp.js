@@ -3,11 +3,13 @@ const bodyParser = require('body-parser');
 
 const GameClass = require('./models/gameClass.js');
 const GameSettings = require('./models/gameSettings.js');
+const Player = require('./models/player.js');
 
 const dataModule = require('./data.js');
 const sockets = dataModule.sockets;
 const games = dataModule.games;
 const socketsIdsGame = dataModule.socketsIdsGame;
+const socketsUsersMap = dataModule.socketsUsersMap;
 
 const boardUtils = require('./boardUtils');
 const util = require('util');
@@ -17,21 +19,20 @@ function createNewPrivateGame(req, res) {
   console.log(`createNewPrivateGame: start`);
   console.log(`createNewPrivateGame: headers: ${JSON.stringify(req.headers)}`);
 
-  var a = new GameSettings(12, true);
-
   const socketId = req.header('socketId');
   const gameId = Math.random().toString(36).substring(2, 15).substring(0, 3);
   const gameSettings = req.body.gameSettings;
   const isPrivate = req.body.isPrivate;
   const board = boardUtils.createBoard(20, 12, 50);
-  //const board = req.body.board;
 
   while ( typeof games.get(gameId) !== 'undefined' ) {
     const gameId = Math.random().toString(36).substring(2, 15).substring(0, 6);
   }
 
   games.set(gameId, new GameClass(gameId, board, new GameSettings(gameSettings.flagsToWin, gameSettings.gentlemanRule), isPrivate));
-  games.get(gameId).addSocket(sockets.get(socketId));
+  const socket = sockets.get(socketId);
+  const userId = socketsUsersMap.get(socketId);
+  games.get(gameId).addPlayer(new Player(socket, userId)); // Moshiko addSocket(sockets.get(socketId));
   socketsIdsGame.set(socketId, gameId);
 
   console.log(`createNewGame: game: ${util.inspect(games.get(gameId))}`);
@@ -58,13 +59,15 @@ function enterGame(req, res) {
   }
 
   // if here, there is a valid game -- private or not
-  game.addSocket(sockets.get(socketId));
+  const socket = sockets.get(socketId);
+  const userId = socketsUsersMap.get(socketId);
+  game.addPlayer(new Player(socket, userId)); // Moshiko addSocket(sockets.get(socketId));
   socketsIdsGame.set(socketId, game.gameId);
   //console.log(util.inspect(game, false, null, true /* enable colors */));
 
-  if (game.sockets.length === 2) { // if two player in the game, publish the sockets to start game
-    const socket1 = game.sockets[0];
-    const socket2 = game.sockets[1];
+  if (game.players.length === 2) { // if two player in the game, publish the sockets to start game
+    const socket1 = game.players[0].socket;
+    const socket2 = game.players[1].socket;
 
     const gameObject1 = {
       "gameId": game.gameId,
@@ -114,8 +117,8 @@ function postMove(req, res) {
   console.log(`postMove:\ngameId: ${gameId}\nsocketId: ${socketId}\nmove: ${util.inspect(move)}`);
 
   const game = games.get(gameId);
-  const socket1 = game.sockets[0];
-  const socket2 = game.sockets[1];
+  const socket1 = game.players[0].socket;
+  const socket2 = game.players[1].socket;
 
   if (socket1.id === socketId) {
     socket2.emit("newMove", move);
@@ -135,7 +138,7 @@ function getValidGame() {
   var validGame;
 
   games.values().forEach((game, i) => {
-    if (!(game.isPrivate) && game.sockets.length < 2) {
+    if (!(game.isPrivate) && game.players.length < 2) {
       validGame = game;
     }
   });
