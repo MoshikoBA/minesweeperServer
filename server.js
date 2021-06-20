@@ -70,20 +70,20 @@ async function getGamesData(req, res) {
 
   };
 
-  const values = games.values();
+  const allGames = games.values();
   var array = [];
 
 
-  for (i = 0; i < values.length; i++) {
-    const game = values[i];
+  for (i = 0; i < allGames.length; i++) {
+    const game = allGames[i];
     var item = {};
     var itemSockets = [];
 
-
+    const players = game.players;
     item["gameId"] = game.gameId;
 
-    for (j = 0; j < game.sockets.length; j++) {
-      itemSockets.push(game.sockets[j].id);
+    for (j = 0; j < players.length; j++) {
+      itemSockets.push(players[j].socket.id);
     }
 
     item["sockets"] = itemSockets;

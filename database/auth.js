@@ -69,7 +69,7 @@ async function getUserData(req, res) {
     userData.totalFlagsAgainst);
 
     usersMap.set(finalUser.userId, finalUser);
-    socketsUsersMap.set(socketId, finalUser.userId);
+    socketsUsersMap.set(socketId, finalUser);
     return;
 }
 

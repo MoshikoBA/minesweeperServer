@@ -5,6 +5,11 @@ const GameClass = require('./models/gameClass.js');
 const GameSettings = require('./models/gameSettings.js');
 const Player = require('./models/player.js');
 
+const GameResponse = require('./models/responses/gameResponse.js');
+const moveFile = require('./models/move.js');
+const MoveType = moveFile.MoveType;
+const Move = moveFile.Move;
+
 const dataModule = require('./data.js');
 const sockets = dataModule.sockets;
 const games = dataModule.games;
@@ -13,7 +18,6 @@ const socketsUsersMap = dataModule.socketsUsersMap;
 
 const boardUtils = require('./boardUtils');
 const util = require('util');
-
 
 function createNewPrivateGame(req, res) {
   console.log(`createNewPrivateGame: start`);
@@ -31,8 +35,8 @@ function createNewPrivateGame(req, res) {
 
   games.set(gameId, new GameClass(gameId, board, new GameSettings(gameSettings.flagsToWin, gameSettings.gentlemanRule), isPrivate));
   const socket = sockets.get(socketId);
-  const userId = socketsUsersMap.get(socketId);
-  games.get(gameId).addPlayer(new Player(socket, userId)); // Moshiko addSocket(sockets.get(socketId));
+  const user = socketsUsersMap.get(socketId);
+  games.get(gameId).addPlayer(new Player(socket, user)); // Moshiko addSocket(sockets.get(socketId));
   socketsIdsGame.set(socketId, gameId);
 
   console.log(`createNewGame: game: ${util.inspect(games.get(gameId))}`);
@@ -45,12 +49,13 @@ function enterGame(req, res) {
   console.log(`enterGame: start`);
 
   const socketId = req.header('socketId');
-  const gameId = req.body.gameId;
+  var gameId = req.body.gameId;
   var game;
 
   // check if enter a private game or not private
   if (typeof gameId === 'undefined') {
     game = getValidGame();
+    gameId = game.gameId;
   } else {
     game = games.get(gameId);
     if (typeof game === 'undefined') { // check if the user enter invalid game id
@@ -60,31 +65,32 @@ function enterGame(req, res) {
 
   // if here, there is a valid game -- private or not
   const socket = sockets.get(socketId);
-  const userId = socketsUsersMap.get(socketId);
-  game.addPlayer(new Player(socket, userId)); // Moshiko addSocket(sockets.get(socketId));
+  const user = socketsUsersMap.get(socketId);
+  game.addPlayer(new Player(socket, user)); // Moshiko addSocket(sockets.get(socketId));
   socketsIdsGame.set(socketId, game.gameId);
   //console.log(util.inspect(game, false, null, true /* enable colors */));
-
   if (game.players.length === 2) { // if two player in the game, publish the sockets to start game
     const socket1 = game.players[0].socket;
     const socket2 = game.players[1].socket;
 
-    const gameObject1 = {
-      "gameId": game.gameId,
-      "board": game.board,
-      "gameSettings": game.boardSettings,
-      "firstTurn": 0
-    }
+    const gameResponse1 = new GameResponse(
+      game.gameId,
+      game.board,
+      game.boardSettings,
+      0,
+      game.players[0].user
+    );
 
-    const gameObject2 = {
-      "gameId": game.gameId,
-      "board": game.board,
-      "gameSettings": game.boardSettings,
-      "firstTurn": 1
-    }
+    const gameResponse2 = new GameResponse(
+      game.gameId,
+      game.board,
+      game.boardSettings,
+      1,
+      game.players[1].user
+    );
 
-    socket1.emit('enterGame', gameObject1);
-    socket2.emit('enterGame', gameObject2);
+    socket1.emit('enterGame', gameResponse1);
+    socket2.emit('enterGame', gameResponse2);
   }
 
   res.status(200).send({"gameId" : gameId});
@@ -113,19 +119,24 @@ function postMove(req, res) {
   const socketId = req.header('socketId');
   const gameId = req.header('gameId');
   const move = req.body
-
-  console.log(`postMove:\ngameId: ${gameId}\nsocketId: ${socketId}\nmove: ${util.inspect(move)}`);
-
   const game = games.get(gameId);
-  const socket1 = game.players[0].socket;
-  const socket2 = game.players[1].socket;
+  const players = game.players;
+  var playerIndex = 0;
 
-  if (socket1.id === socketId) {
-    socket2.emit("newMove", move);
-  } else {
-    socket1.emit("newMove", move);
+  if (players[1].socket.id === socketId) {
+    playerIndex = 1;
   }
 
+  console.log(`postMove: gameId: ${gameId}\nsocketId: ${socketId}\nmove: ${util.inspect(move)}`);
+
+  if (move.moveType === MoveType.FLAG) {
+    players[playerIndex].score = players[playerIndex].score + 1;
+  } else if (move.moveType === MoveType.FUTILITY) {
+    players[(playerIndex + 1) % 2].score = players[(playerIndex + 1) % 2].score + 1;
+  }
+
+  players[(playerIndex + 1) % 2].socket.emit("newMove", move);
+  console.log(`postMove: player0: ${players[0].score}, player1: ${players[1].score}`);
   res.status(200).send("Succ!!!");
 }
 
@@ -149,7 +160,6 @@ function getValidGame() {
 
   return validGame;
 }
-
 
 app.post('/move', postMove);
 app.post('/createNewPrivateGame', createNewPrivateGame);
